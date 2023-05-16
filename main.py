@@ -12,34 +12,56 @@ class DataBaseGUI:
     user_entry = pw_entry = None
     user_info_frame = None
     invalid_login = None
+    unable_to_login = None
     root = conn = None
 
-    def __init__guest__database__(self):
+    def __init__guest__database__(self) -> bool:
         try:
             self.conn = duckdb.connect('DatingDB.db', read_only=True)
+            return True
         except duckdb.Error as error:
-            print(error)
-            exit()
+            self.destroy_invalid_login_object()
+            self.destroy_unable_to_login_object()
+
+            self.unable_to_login = tk.Label(self.user_info_frame, text = 'Unable to Connect', font = ('Arial 8'), fg = '#fc2d2d')
+            self.unable_to_login.grid(row = 5, column = 10)
+            return False
 
     def __init__master__database__(self):
         try:
+            self.conn = duckdb.connect('DatingDB.db', read_only=True)
+            self.conn.close()
             self.conn = duckdb.connect('DatingDB.db', read_only=False)
+            return True
         except duckdb.Error as error:
-            print(error)
-            exit()
+            self.destroy_invalid_login_object()
+            self.destroy_unable_to_login_object()
+            
+            self.unable_to_login = tk.Label(self.user_info_frame, text = 'Unable to Connect', font = ('Arial 8'), fg = '#fc2d2d')
+            self.unable_to_login.grid(row = 5, column = 10)
+            return False
 
     def check_master_login(self, user, pw):
         return user == 'master' and pw == '12345678'
 
     def try_login(self):
         user, pw = self.user_entry.get(), self.pw_entry.get()
-        if self.invalid_login is not None:
-            self.invalid_login.destroy()
+        self.destroy_invalid_login_object()
+        self.destroy_unable_to_login_object()
+
         if self.check_master_login(user, pw):
             self.master_view()
         else:
             self.invalid_login = tk.Label(self.user_info_frame, text = 'Invalid Login', font = ('Arial 8'), fg = '#fc2d2d')
             self.invalid_login.grid(row = 5, column = 10)
+
+    def destroy_invalid_login_object(self):
+        if self.invalid_login is not None:
+            self.invalid_login.destroy()
+    
+    def destroy_unable_to_login_object(self):
+        if self.unable_to_login is not None:
+            self.unable_to_login.destroy()
 
     def __init__(self):
         window = tk.Tk()
@@ -73,10 +95,9 @@ class DataBaseGUI:
         self.conn.close()
     
     def master_view(self):
-        if self.view_open:
+        if self.view_open or not self.__init__master__database__():
             return
         self.view_open = True
-        self.__init__master__database__()
         
         self.root = tk.Tk()
         self.root.configure(background='#c0d4ff')
@@ -84,10 +105,9 @@ class DataBaseGUI:
         self.init_database_components()
 
     def guest_view(self):
-        if self.view_open:
+        if self.view_open or not self.__init__guest__database__():
             return
         self.view_open = True
-        self.__init__guest__database__()
 
         self.root = tk.Tk()
         self.root.configure(background='#c0d4ff')
@@ -125,7 +145,6 @@ class DataBaseGUI:
             if not self.is_read_only_query(sql_query):
                 messagebox.showinfo(title='Query Results', message='Query Success!')
                 return
-
             field_names = [item[0] for item in self.conn.description]
             query_window = tk.Tk()
             query_window.configure(background='#ffffff')
